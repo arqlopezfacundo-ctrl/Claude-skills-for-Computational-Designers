@@ -249,9 +249,9 @@ def ink_lines(depth, nrm, W):
     e_d = smoothstep(0.25, 1.2, -lap) * 0.9
     gn = 0
     for c in range(3):
-        n = nrm[..., c]
+        n = ndi.gaussian_filter(nrm[..., c], 1.0)
         gn = gn + np.abs(np.roll(n, -1, 0) - n) + np.abs(np.roll(n, -1, 1) - n)
-    e_n = smoothstep(0.35, 0.9, gn)
+    e_n = smoothstep(0.30, 0.8, gn)
     e = np.maximum(e_d, e_n * 0.75)
     # foliage and tiny clutter make blots: damp lines where edges are dense
     dens = ndi.uniform_filter(e, 9)
