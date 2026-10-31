@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Cúpula de vidriera · Palacio de Comunicaciones, València — despiece 3D</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--paper:#ece6d6;--paper2:#e2dac5;--ink:#2b2118;--mute:#74685a;--acc:#9e3426;--line:rgba(43,33,24,.28);--serif:'EB Garamond',Georgia,'Times New Roman',serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--serif);overflow:hidden;overscroll-behavior:none}
+body{display:flex;flex-direction:column;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+background:radial-gradient(120% 90% at 50% 38%,#f4efe2 0,#e8e1cf 55%,#d9d0b8 100%)}
+header{flex:none;display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);background:rgba(236,230,214,.85);backdrop-filter:blur(6px);z-index:5}
+header h1{font-size:19px;line-height:1.05;margin:0;font-weight:600;letter-spacing:.2px}
+header h1 small{display:block;font:400 10.5px/1.2 var(--mono);color:var(--mute);letter-spacing:.6px;text-transform:uppercase;margin-top:3px}
+header .sp{flex:1}
+button{font:inherit;color:inherit;cursor:pointer}
+.hb{font:500 11px var(--mono);letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--ink);background:transparent;padding:7px 10px;border-radius:2px}
+.hb:active,.hb.on{background:var(--ink);color:var(--paper)}
+main{flex:1;position:relative;min-height:0}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;font:500 10.5px var(--mono);letter-spacing:.3px;background:var(--paper);border:1px solid var(--ink);padding:2px 6px 2px 7px;margin:-9px 0 0 14px;transition:opacity .2s;opacity:0}
+.lbl:before{content:"";position:absolute;left:-14px;top:50%;width:14px;border-top:1px solid var(--ink)}
+.lbl:after{content:"";position:absolute;left:-17px;top:calc(50% - 3px);width:6px;height:6px;border-radius:50%;background:var(--acc)}
+.panel{position:absolute;top:0;bottom:0;width:min(86vw,300px);background:rgba(236,230,214,.96);z-index:6;overflow:auto;padding:14px 14px 18px;transition:transform .28s ease;border:0 solid var(--line)}
+#left{left:0;border-right-width:1px;transform:translateX(-102%)}
+#right{right:0;border-left-width:1px;transform:translateX(102%)}
+body.showL #left,body.showR #right{transform:none;box-shadow:0 0 30px rgba(0,0,0,.25)}
+.panel h2{font:500 11px var(--mono);letter-spacing:1px;text-transform:uppercase;margin:0 0 8px;padding-bottom:5px;border-bottom:2px solid var(--ink);display:flex;justify-content:space-between;align-items:center}
+.drawerX{border:0;background:none;font-size:20px;line-height:1;padding:0 2px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:5px 0;border-bottom:1px dotted var(--line)} td:last-child{text-align:right;font-family:var(--mono);font-size:12px}
+ul{list-style:none;padding:0;margin:6px 0 14px;font-size:13.5px}
+li{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dotted var(--line)} li b{font:500 12px var(--mono)}
+.note{font-size:12.5px;line-height:1.35;color:var(--mute);font-style:italic;margin-top:10px}
+#asmList section{margin-bottom:12px}
+#asmList h4{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:8px}
+#asmList h4 i{font:500 11px var(--mono);font-style:normal;background:var(--ink);color:var(--paper);width:20px;height:20px;display:inline-grid;place-items:center}
+.row{display:flex;width:100%;align-items:center;gap:8px;border:0;border-bottom:1px dotted var(--line);background:none;padding:7px 2px;text-align:left;font-size:14px}
+.row span{flex:1}.row em{font:400 11px var(--mono);color:var(--mute);font-style:normal}.row b{font:500 10px var(--mono);border:1px solid var(--ink);padding:1px 5px}
+.row:active{background:var(--paper2)}
+#toggles{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.chip{font:500 10.5px var(--mono);letter-spacing:.3px;text-transform:uppercase;border:1px solid var(--ink);background:transparent;padding:6px 8px;border-radius:2px;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--paper)}
+#card{position:absolute;left:8px;right:8px;bottom:8px;max-height:44%;overflow:auto;background:rgba(244,239,226,.97);border:1px solid var(--ink);padding:12px 14px 12px;z-index:4;display:none;box-shadow:4px 4px 0 rgba(43,33,24,.18)}
+#card.on{display:block}
+#card small{font:500 10px var(--mono);letter-spacing:.8px;text-transform:uppercase;color:var(--acc)}
+#card h3{margin:2px 0 6px;font-size:20px;font-weight:600;padding-right:26px}
+#card dl{display:grid;grid-template-columns:76px 1fr;gap:3px 10px;margin:0;font-size:13.5px;line-height:1.3}
+#card dt{font:500 10px var(--mono);text-transform:uppercase;color:var(--mute);padding-top:2px}#card dd{margin:0}
+#cardX{position:absolute;right:6px;top:4px;border:0;background:none;font-size:26px;line-height:1;color:var(--ink);padding:4px 8px}
+#dock{flex:none;border-top:1px solid var(--ink);background:rgba(236,230,214,.96);padding:6px 12px 6px;z-index:5}
+.r1{display:flex;align-items:center;gap:10px}
+#bExplode{font:500 11px var(--mono);letter-spacing:.6px;text-transform:uppercase;border:1px solid var(--acc);background:var(--acc);color:#f6efe0;padding:8px 10px;border-radius:2px;min-width:104px}
+#bExplode.on{background:transparent;color:var(--acc)}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;width:100%;height:26px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--ink)}
+input[type=range]::-moz-range-track{height:2px;background:var(--ink)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-8px;background:var(--acc);border:2px solid var(--paper);box-shadow:0 0 0 1px var(--ink);border-radius:50%}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--acc);border:2px solid var(--paper);border-radius:50%}
+#sVal{font:500 12px var(--mono);width:42px;text-align:right}
+.r2{display:flex;gap:6px;overflow-x:auto;padding:6px 0 4px;scrollbar-width:none}.r2 #toggles{flex-wrap:nowrap;margin:0}.r2::-webkit-scrollbar{display:none}
+.r3{display:flex;align-items:center;gap:10px;border-top:1px dotted var(--line);padding-top:4px}
+#bPlay{font:500 10.5px var(--mono);letter-spacing:.4px;text-transform:uppercase;border:1px solid var(--ink);background:transparent;padding:6px 8px;border-radius:2px;white-space:nowrap;min-width:104px}
+.tlw{flex:1;min-width:0}
+#tlTicks{display:grid;grid-template-columns:repeat(9,1fr);margin-top:-8px}
+#tlTicks button{border:0;background:none;padding:2px 0;display:flex;flex-direction:column;align-items:center;color:var(--mute)}
+#tlTicks b{font:500 10px var(--mono)}#tlTicks span{display:none}#tlTicks .done{color:var(--acc)}
+#tlLabel{font:italic 13px var(--serif);color:var(--mute);margin-bottom:-2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body:not(.ready)::after{content:"Cargando modelo…";position:fixed;inset:0;display:grid;place-items:center;font:italic 22px var(--serif);background:var(--paper);z-index:20}
+@media (min-width:820px){
+ header h1{font-size:23px}.panel{width:300px;transform:none!important;top:12px;bottom:12px;border:1px solid var(--ink);box-shadow:none!important;background:rgba(236,230,214,.9)}
+ #left{left:12px}#right{right:12px}.drawerX,#openL,#openR{display:none}
+ #card{left:336px;right:auto;top:12px;bottom:auto;width:380px;max-height:calc(100% - 24px)}
+ #dock{padding:10px 24px}#tlTicks span{display:block;font:italic 11.5px var(--serif);text-align:center;line-height:1.1;margin-top:2px}
+ #right #toggles{display:flex}
+ .r2{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+ <h1>Cúpula de vidriera<small>Palacio de Comunicaciones · València · despiece 3D</small></h1>
+ <span class="sp"></span>
+ <button class="hb" id="openL">Ficha</button><button class="hb" id="openR">Piezas</button>
+</header>
+<main>
+ <canvas id="c" aria-label="Modelo 3D de la cúpula"></canvas>
+ <div id="labels"></div>
+ <aside class="panel" id="left">
+  <h2>Datos del conjunto <button class="drawerX">×</button></h2>
+  <table id="dataTable"></table>
+  <h2 style="margin-top:16px">Piezas por material</h2>
+  <ul id="matList"></ul>
+  <p class="note">Reconstrucción: las medidas, el número y la forma de las piezas son estimaciones verosímiles de una cúpula de hierro y vidrio de época (1915–1922), no un levantamiento del edificio. El original tiene unos 370 paneles; aquí se modelan 96.</p>
+ </aside>
+ <aside class="panel" id="right">
+  <h2>Conjuntos y piezas <button class="drawerX">×</button></h2>
+  <div id="asmList"></div>
+  <h2 style="margin-top:6px">Vista</h2>
+  <div id="toggles">
+   <button class="chip" id="tgExplode">Despiece</button>
+   <button class="chip" id="tgLabels">Etiquetas</button>
+   <button class="chip" id="tgGuides">Guías</button>
+   <button class="chip" id="tgCut">Corte</button>
+   <button class="chip" id="tgSpin">Giro 360°</button>
+   <button class="chip" id="tgXray">Rayos X</button>
+   <button class="chip" id="tgQuality">Calidad alta</button>
+   <button class="chip" id="resetView">Encuadrar</button>
+  </div>
+ </aside>
+ <div id="card"></div>
+</main>
+<div id="dock">
+ <div class="r1"><button id="bExplode">Despiezar</button><input id="explode" type="range" min="0" max="100" value="0" aria-label="Despiece"><span id="sVal">0 %</span></div>
+ <div class="r2" id="mobToggles"></div>
+ <div class="r3"><button id="bPlay">▶ Montaje</button>
+  <div class="tlw"><div id="tlLabel"></div><input id="timeline" type="range" min="0" max="900" value="900" aria-label="Secuencia de montaje"><div id="tlTicks"></div></div></div>
+</div>
+<script>
+// on phones the view toggles live in the dock, on desktop in the right panel
+(function(){var t=document.getElementById('toggles');var m=document.getElementById('mobToggles');var r=document.getElementById('right');
+function place(){if(innerWidth<820){m.appendChild(t);m.style.display='flex'}else{r.appendChild(t);m.style.display='none'}}
+addEventListener('resize',place);place();})();
+</script>
+<script>/*BUNDLE*/</script>
+</body>
+</html>
