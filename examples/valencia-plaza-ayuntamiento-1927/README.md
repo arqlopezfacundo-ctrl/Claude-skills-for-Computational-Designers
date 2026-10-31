@@ -64,6 +64,14 @@ vlc/materials.py   biblioteca de materiales procedurales envejecidos
 vlc/stage.py       cámara axonométrica, sol, cielo, ajustes de Cycles
 ```
 
+## Render
+
+- Cycles CPU, 1600×900, 5 muestras + OpenImageDenoise, EXR multicapa (color, profundidad,
+  normales) → post-proceso → escalado Lanczos a 1920×1080, H.264 CRF 19, 24 fps, 20 s.
+- ~22 s/frame en 4 núcleos. Con *persistent data* Cycles degrada el shader de fachadas tras
+  ~150 frames en un mismo proceso, por eso `make_video.sh` renderiza en tramos de 50 frames.
+- `stills/` contiene fotogramas de referencia de cada fase.
+
 ## Reproducir
 
 ```bash
