@@ -644,7 +644,7 @@ def work(fi):
     if os.path.exists(dst):
         return fi
     t = fi / FPS
-    if 3.0 <= t <= 37.0:
+    if 2.4 <= t <= 38.2:
         exr = os.path.join(HERE, "film", "exr", "f%04d.exr" % fi)
         if not os.path.exists(exr) or (os.path.getmtime(exr) > __import__("time").time() - 10):
             return None

@@ -94,6 +94,8 @@ def cam_at(t):
     f2 = KEYS[i2][4] if KEYS[i2][4] is not None else float(np.linalg.norm(np.array(KEYS[i2][2]) - np.array(KEYS[i2][1])))
     focus = math.exp(math.log(f1) + (math.log(f2) - math.log(f1)) * k)
     fstop = math.exp(math.log(KEYS[i1][5]) + (math.log(KEYS[i2][5]) - math.log(KEYS[i1][5])) * k)
+    # never below eye level: the spline may overshoot between low keys
+    pos[2] = max(pos[2], 1.6)
     # floor the eye a little above the walk and add a breathing hand-held drift
     if pos[2] < 4.0:
         pos = pos + np.array([0.04 * math.sin(t * 0.9), 0.03 * math.sin(t * 1.3 + 1), 0.025 * math.sin(t * 1.7 + 2)])
