@@ -82,13 +82,17 @@ class City:
         self.flags = []
         self.roof_life = []       # laundry etc.
         self.bounds_r = 270.0
+        self.ground_hole = plan.ISLAND    # what is dug out of the street surface
+        self.skip_pt = None               # a block left empty for the works
+        self.no_correos = False
+        self.exclude_zone = None          # no trees here (the works)
 
     # -- ground -------------------------------------------------------------
     def ground(self):
         mb = MB()
         g = Polygon([(-plan.EXT, -plan.EXT), (plan.EXT, -plan.EXT),
                      (plan.EXT, plan.EXT), (-plan.EXT, plan.EXT)])
-        g = g.difference(plan.ISLAND)
+        g = g.difference(self.ground_hole)
         top_face(mb, g, 0.0, (1, 1, 1), 0)
         self.ground_obj = mb.build("ground", [self.M["cobble"]], self.coll)
 
@@ -255,6 +259,8 @@ class City:
                        if b.distance(Point(VIEW_C)) < self.bounds_r]
         lm = Landmarks(self)
         for bi, blk in enumerate(self.blocks):
+            if self.skip_pt is not None and blk.contains(Point(*self.skip_pt)):
+                continue
             F0 = plan.footprint(blk)
             if F0 is None:
                 continue
@@ -389,6 +395,8 @@ class City:
             me.materials.append(self.M["wood"])
             variants["palm"].append(me)
         self.tree_objs = []
+        if self.exclude_zone is not None:
+            self.trees = [tr for tr in self.trees if not self.exclude_zone.contains(Point(tr[0], tr[1]))]
         for i, (x, y, z, s, kind) in enumerate(self.trees):
             me = rng.choice(variants[kind])
             ob = obj_from_mesh("t%d" % i, me, coll, (x, y, z), rng.uniform(0, 6.28), s)
@@ -665,7 +673,8 @@ class Landmarks:
 
     def build_all(self):
         self.ayuntamiento()
-        self.correos()
+        if not self.city.no_correos:
+            self.correos()
         self.san_agustin_tower()
         M = self.M
         self.obj = self.mb.build("landmarks", [M["facade"], M["ashlar"], M["plain"],

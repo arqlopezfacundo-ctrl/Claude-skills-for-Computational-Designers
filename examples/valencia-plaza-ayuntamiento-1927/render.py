@@ -20,6 +20,7 @@ import bpy  # noqa: E402
 import numpy as np  # noqa: E402
 
 from vlc import agents, city, materials, plan, site, stage  # noqa: E402
+from vlc import correos, correos_agents  # noqa: E402
 from vlc.common import smooth, clamp, new_coll, MB  # noqa: E402
 
 FPS = 24
@@ -34,13 +35,25 @@ def p_of_t(t):
     return 0.15 * smooth(u) + 0.85 * u
 
 
+SUBJECT = {
+    # the 1927 platform of the plaza (first version of this piece)
+    "plaza": dict(target=(12.0, -6.0, 0.0), az=150.0, elev=42.0, ortho=215.0, sun_az=128.0,
+                  drift=(5.0, 2.5)),
+    # the Palacio de Comunicaciones rising, 1915-1922
+    "correos": dict(target=(70.0, 86.0, 9.0), az=24.0, elev=36.0, ortho=128.0, sun_az=62.0,
+                    drift=(3.0, 1.5)),
+}
+SUBJ = SUBJECT["plaza"]
+
+
 def cam_state(t):
     w = 2 * math.pi * t / DURATION
-    tx = stage.CAM_TARGET[0] + 5.0 * math.sin(w)
-    ty = stage.CAM_TARGET[1] + 2.5 * (1 - math.cos(w))
-    ortho = stage.ORTHO * (1 - 0.045 * (1 - math.cos(w)) / 2)
-    az = stage.CAM_AZ + 1.6 * math.sin(w)
-    return (tx, ty, 0.0), ortho, az
+    tg = SUBJ["target"]
+    tx = tg[0] + SUBJ["drift"][0] * math.sin(w)
+    ty = tg[1] + SUBJ["drift"][1] * (1 - math.cos(w))
+    ortho = SUBJ["ortho"] * (1 - 0.045 * (1 - math.cos(w)) / 2)
+    az = SUBJ["az"] + 1.6 * math.sin(w)
+    return (tx, ty, tg[2]), ortho, az
 
 
 def cloud_shadows():
@@ -64,6 +77,7 @@ def main():
     ap.add_argument("--out", default=os.path.join(HERE, "render", "exr"))
     ap.add_argument("--png", action="store_true", help="quick tone-mapped PNG previews")
     ap.add_argument("--skip-existing", action="store_true")
+    ap.add_argument("--subject", default="correos", choices=sorted(SUBJECT))
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
     if ":" in a.frames:
         f0, f1 = (int(x) for x in a.frames.split(":"))
@@ -74,6 +88,9 @@ def main():
     else:
         frames = [int(x) for x in a.frames.split(",")]
     os.makedirs(a.out, exist_ok=True)
+    global SUBJ
+    SUBJ = SUBJECT[a.subject]
+    stage.SUN_AZ = SUBJ["sun_az"]
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     rng = random.Random(1927)
@@ -85,13 +102,28 @@ def main():
     M = materials.build_all(plan.X_MIN, plan.X_MAX)
     t0 = time.time()
     C = city.City(M, rng)
-    C.build()
-    S = site.Site(M, rng)
-    S.build()
     times = np.arange(N_FRAMES) / FPS
-    S.plan_cranes(times, p_of_t, FPS)
-    crowd = agents.Crowd(M, rng, times, p_of_t, FPS)
-    crowd.build_all(C)
+    if a.subject == "correos":
+        S = correos.Correos(M, rng)
+        C.ground_hole = S.F
+        C.skip_pt = (70.0, 90.0)
+        C.no_correos = True
+        C.exclude_zone = S.work_zone.buffer(1.5)
+        C.build()
+        S.build()
+        S.plan_cranes(times, p_of_t, FPS)
+        crowd = agents.Crowd(M, rng, times, p_of_t, FPS)
+        correos_agents.build_crews(crowd, S)
+        correos_agents.build_townsfolk(crowd, S, C)
+        crowd.vehicles(C.tram_loop)
+        crowd.pigeons()
+    else:
+        C.build()
+        S = site.Site(M, rng)
+        S.build()
+        S.plan_cranes(times, p_of_t, FPS)
+        crowd = agents.Crowd(M, rng, times, p_of_t, FPS)
+        crowd.build_all(C)
     amb = agents.Ambient(M, C, rng)
     clouds = cloud_shadows()
     print("scene built in %.1fs, %d objects" % (time.time() - t0, len(bpy.data.objects)),
@@ -113,21 +145,32 @@ def main():
         ext = ".png" if a.png else ".exr"
         path = os.path.join(a.out, "f%04d%s" % (fi, ext))
         tgt, ortho, az = cam_state(t)
-        stage.place_camera(cam, tgt, ortho, az=az)
+        stage.place_camera(cam, tgt, ortho, az=az, elev=SUBJ["elev"])
         bpy.context.view_layer.update()
-        meta = dict(frame=fi, t=t, p=p, res=res, ortho=ortho,
+        meta = dict(frame=fi, t=t, p=p, res=res, ortho=ortho, subject=a.subject,
                     cam=[list(r) for r in cam.matrix_world.inverted()],
                     sun=list(stage.sun_dir()))
         dust = list(dust_by_frame.get(fi, []))
-        for cr in S.cranes:
-            if not cr["load"].hide_render and cr["hook"][fi][2] < plan.DECK_Z + 2.0:
-                dust.append((*cr["hook"][fi], 1.0))
-        if 0.42 < p < 0.68:
+        if a.subject == "correos":
+            for cr in S.cranes:
+                h = cr["hook"][fi]
+                if cr["att"][fi] and abs(h[2] - S.work_level(p) - 1.2) < 1.5:
+                    dust.append((*h, 0.9))
+            if 0.035 < p < 0.18:
+                cx, cy = S.F.centroid.x, S.F.centroid.y
+                for k in range(5):
+                    dust.append((cx + 15 * math.cos(k * 1.3), cy + 15 * math.sin(k * 1.3), correos.PIT_Z + 1.0,
+                                 0.8))
+        elif True:
+            for cr in S.cranes:
+                if not cr["load"].hide_render and cr["hook"][fi][2] < plan.DECK_Z + 2.0:
+                    dust.append((*cr["hook"][fi], 1.0))
+        if a.subject == "plaza" and 0.42 < p < 0.68:
             fx = site.deck_front_x(p)
             for k in range(4):
                 y = plan.axis_y(fx) + (k - 1.5) / 1.5 * plan.half_width(fx) * 0.8
                 dust.append((fx + 1, y, plan.DECK_Z, 0.7))
-        if p < 0.2:
+        if a.subject == "plaza" and p < 0.2:
             for x, y, r in ((-20, 2, 7), (20, -6, 8), (40, 10, 6), (-45, -2, 5)):
                 dust.append((x, y, plan.PIT_Z + 1.5, 0.8 * (1 - p / 0.2)))
         meta["dust"] = dust

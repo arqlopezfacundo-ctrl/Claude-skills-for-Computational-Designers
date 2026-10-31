@@ -168,6 +168,40 @@ def paint_clouds(H, W, seed):
 
 
 # ------------------------------------------------------------- plan drawing
+TEXTS = {
+    "plaza": dict(
+        cart=("URBANIZACIÓN DE LA PLAZA DE EMILIO CASTELAR",
+              "Plataforma central y mercado de flores — J. Goerlich Lleó, 1927",
+              "VALÈNCIA  ·  hoy Plaza del Ayuntamiento  ·  Plano D2"),
+        vtitle=("PLAZA DE EMILIO CASTELAR", "Plataforma central y mercado de flores",
+                "J. Goerlich Lleó · 1927 · València", "hoy Plaza del Ayuntamiento · Plano D2"),
+        phases=[(0.00, "Excavación y solera"), (0.20, "Muros de ladrillo y pilares"),
+                (0.42, "Forjado con cabrias de madera"), (0.70, "Sillería, balaustradas y jardines"),
+                (0.90, "La plaza terminada")],
+        intro="El proyecto de 1927", years=None),
+    "correos": dict(
+        cart=("PALACIO DE COMUNICACIONES · CORREOS Y TELÉGRAFOS",
+              "Miguel Ángel Navarro Pérez, arquitecto — construido 1915-1922, inaugurado en 1923",
+              "VALÈNCIA  ·  Plaza de Emilio Castelar, hoy Plaza del Ayuntamiento"),
+        vtitle=("PALACIO DE COMUNICACIONES", "Correos y Telégrafos",
+                "Miguel Ángel Navarro Pérez · 1915-1922 · València",
+                "Plaza de Emilio Castelar · hoy del Ayuntamiento"),
+        phases=[(0.00, "Replanteo y excavación"), (0.08, "Cimientos y sótano"),
+                (0.20, "Muros de sillería y estructura de acero"), (0.58, "Cubiertas, cúpula y torre"),
+                (0.72, "Ornamentación y desmontaje de andamios"), (0.90, "Inauguración, 1923")],
+        intro="El proyecto", years=("1915", "1922")),
+}
+
+
+def correos_plan():
+    from shapely.geometry.polygon import orient
+    F = orient(plan.footprint(plan.block_at((70, 90))).simplify(0.2), 1.0)
+    hall = F.buffer(-13.0, join_style=2)
+    if hall.geom_type != "Polygon":
+        hall = max(hall.geoms, key=lambda g: g.area)
+    return F, hall
+
+
 def plan_layer(meta, W, H, draw_frac=1.0):
     """Goerlich's 1927 plan in ink, projected with the current camera."""
     im = Image.new("L", (W, H), 0)
@@ -184,6 +218,38 @@ def plan_layer(meta, W, H, draw_frac=1.0):
         dd.line(seq, fill=255, width=max(1, int(round(width * sc))), joint="curve")
 
     from shapely.geometry import Point, Polygon
+    if meta.get("subject") == "correos":
+        F, hall = correos_plan()
+        poly(list(F.exterior.coords), 0.0, 3.0)
+        poly(list(F.buffer(-0.7, join_style=2).exterior.coords), 0.0, 1.2)
+        poly(list(hall.exterior.coords), 0.0, 2.2)
+        poly(list(hall.buffer(0.7, join_style=2).exterior.coords), 0.0, 1.0)
+        hc = hall.centroid
+        poly(list(Point(hc.x, hc.y).buffer(9.5, 48).exterior.coords), 0.0, 1.8)
+        poly(list(Point(hc.x, hc.y).buffer(10.1, 48).exterior.coords), 0.0, 1.0)
+        ring = F.difference(hall).buffer(-1.6)
+        minx, miny, maxx, maxy = F.difference(hall).bounds
+        for ix in range(int((maxx - minx) / 6) + 1):
+            for iy in range(int((maxy - miny) / 6) + 1):
+                q = Point(minx + 2 + ix * 6, miny + 2 + iy * 6)
+                if ring.contains(q):
+                    poly(list(q.buffer(0.45, 6).exterior.coords), 0.0, 1.0)
+        for blk in plan.BLOCKS:
+            if blk.distance(Point(70, 80)) > 200:
+                continue
+            poly(list(blk.exterior.coords), 0.0, 1.3)
+        poly(list(plan.ISLAND.exterior.coords), 0.0, 1.6)
+        for c, a_, b_ in plan.parterres():
+            poly(plan.ellipse(c, a_, b_, 40), 0.0, 1.0)
+        poly(list(Point(plan.PATIO_C).buffer(5.0, 32).exterior.coords), 0.0, 1.0)
+        c = np.array([hc.x, hc.y])
+        for v in ((1, 0.16), (-0.16, 1)):
+            v = np.array(v) / np.linalg.norm(v)
+            poly([tuple(c - v * 60), tuple(c + v * 60)], 0.0, 0.8, dd=dr, closed=False)
+        poly(list(F.buffer(8.0, join_style=2).exterior.coords), 0.0, 0.9, dd=dr)
+        a = ndi.gaussian_filter(np.asarray(im, np.float32) / 255, 0.5)
+        b = ndi.gaussian_filter(np.asarray(red, np.float32) / 255, 0.5)
+        return a, b
     poly(list(plan.ISLAND.exterior.coords), 0.0, 2.6)
     poly(list(plan.ISLAND.buffer(-1.0).exterior.coords), 0.0, 1.2)
     poly(list(Point(plan.PATIO_C).buffer(plan.PATIO_R, 48).exterior.coords), 0.0, 1.8)
@@ -211,9 +277,10 @@ def plan_layer(meta, W, H, draw_frac=1.0):
     return a, b
 
 
-def cartouche(W, H):
-    if ("cart", W) in CACHE:
-        return CACHE[("cart", W)]
+def cartouche(W, H, subj="plaza"):
+    if ("cart", W, subj) in CACHE:
+        return CACHE[("cart", W, subj)]
+    L1, L2, L3 = TEXTS[subj]["cart"]
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     s = W / 1920
@@ -226,19 +293,16 @@ def cartouche(W, H):
     x, y = int(70 * s), int(H - 150 * s)
     red = (158, 52, 36, 235)
     ink = (62, 44, 30, 225)
-    tw = max(d.textbbox((0, 0), "URBANIZACIÓN DE LA PLAZA DE EMILIO CASTELAR", font=f1)[2],
-             d.textbbox((0, 0), "Plataforma central y mercado de flores — J. Goerlich Lleó, 1927",
-                        font=f2)[2]) + 14 * s
+    tw = max(d.textbbox((0, 0), L1, font=f1)[2], d.textbbox((0, 0), L2, font=f2)[2]) + 14 * s
     d.rectangle([x - 22 * s, y - 20 * s, x + tw + 22 * s, y + 104 * s], fill=(238, 228, 208, 235))
     d.rectangle([x - 16 * s, y - 14 * s, x + tw + 16 * s, y + 98 * s], outline=red,
                 width=max(1, int(2 * s)))
     d.rectangle([x - 10 * s, y - 8 * s, x + tw + 10 * s, y + 92 * s], outline=red, width=1)
-    d.text((x, y), "URBANIZACIÓN DE LA PLAZA DE EMILIO CASTELAR", font=f1, fill=red)
-    d.text((x, y + 36 * s), "Plataforma central y mercado de flores — J. Goerlich Lleó, 1927",
-           font=f2, fill=ink)
-    d.text((x, y + 64 * s), "VALÈNCIA  ·  hoy Plaza del Ayuntamiento  ·  Plano D2", font=f3, fill=ink)
+    d.text((x, y), L1, font=f1, fill=red)
+    d.text((x, y + 36 * s), L2, font=f2, fill=ink)
+    d.text((x, y + 64 * s), L3, font=f3, fill=ink)
     arr = np.asarray(im, np.float32) / 255
-    CACHE[("cart", W)] = arr
+    CACHE[("cart", W, subj)] = arr
     return arr
 
 
@@ -378,7 +442,7 @@ def compose(meta, src, cart=True, frame_border=True):
     out = out * (1 - (pr * rk)[..., None]) + RED_INK * (pr * rk)[..., None]
     # --- cartouche
     if cart:
-        ca = cartouche(W, H)
+        ca = cartouche(W, H, meta.get("subject", "plaza"))
         k = ca[..., 3:4] * 0.92
         out = out * (1 - k) + ca[..., :3] * k
     # vignette
@@ -441,7 +505,9 @@ def add_clouds(img, S, t, W, H):
 
 # ------------------------------------------------------- vertical 9:16 cut
 VW, VH = 1080, 1920
-V_CROP = (300, 20, 1340, 900)        # window of the 1600x900 frame (x0, y0, x1, y1)
+V_CROPS = {"plaza": (300, 20, 1340, 900),     # window of the 1600x900 frame (x0, y0, x1, y1)
+           "correos": (230, 20, 1270, 900)}
+V_CROP = V_CROPS["plaza"]
 V_IMG_Y = 470                         # top of the illustration on the 9:16 canvas
 PHASES = [(0.00, "Excavación y solera"), (0.20, "Muros de ladrillo y pilares"),
           (0.42, "Forjado con cabrias de madera"), (0.70, "Sillería, balaustradas y jardines"),
@@ -461,11 +527,12 @@ def _fonts(sc=1.0):
             ImageFont.truetype(base + "LiberationSerif-Italic.ttf", int(44 * sc)))
 
 
-def vertical_static():
-    if "vstatic" in CACHE:
-        return CACHE["vstatic"]
+def vertical_static(subj="plaza"):
+    if ("vstatic", subj) in CACHE:
+        return CACHE[("vstatic", subj)]
+    T1, T2, T3, T4 = TEXTS[subj]["vtitle"]
+    x0, y0, x1, y1 = V_CROPS[subj]
     S = statics(VW, VH)
-    x0, y0, x1, y1 = V_CROP
     ih = int(round((y1 - y0) * VW / (x1 - x0)))
     yy, xx = np.mgrid[0:ih, 0:VW].astype(np.float32)
     edge = np.minimum.reduce([xx, VW - 1 - xx, yy, ih - 1 - yy]) / (0.5 * ih)
@@ -479,32 +546,43 @@ def vertical_static():
         w = d.textbbox((0, 0), txt, font=font)[2]
         d.text(((VW - w) / 2, y), txt, font=font, fill=fill)
 
-    centre(215, "PLAZA DE EMILIO CASTELAR", f1, red)
-    centre(300, "Plataforma central y mercado de flores", f2, ink)
-    centre(352, "J. Goerlich Lleó · 1927 · València", f3, ink)
+    f1 = _fit(d, T1, f1, VW - 80)
+    centre(215, T1, f1, red)
+    centre(300, T2, f2, ink)
+    centre(352, T3, f3, ink)
     d.line([(VW / 2 - 230, 415), (VW / 2 + 230, 415)], fill=red, width=2)
-    centre(V_IMG_Y + ih + 210, "hoy Plaza del Ayuntamiento · Plano D2", f3, ink)
-    CACHE["vstatic"] = (S["paper"], torn[..., None], ih, np.asarray(im, np.float32) / 255)
-    return CACHE["vstatic"]
+    centre(V_IMG_Y + ih + 210, T4, f3, ink)
+    CACHE[("vstatic", subj)] = (S["paper"], torn[..., None], ih, np.asarray(im, np.float32) / 255)
+    return CACHE[("vstatic", subj)]
 
 
-def phase_label(t):
+def _fit(d, txt, font, maxw):
+    size = font.size
+    while d.textbbox((0, 0), txt, font=font)[2] > maxw and size > 20:
+        size -= 2
+        font = ImageFont.truetype(font.path, size)
+    return font
+
+
+def phase_label(t, subj="plaza"):
+    PH = TEXTS[subj]["phases"]
     if t < 1.0 or t > 17.4:
-        return "El proyecto de 1927", 1.0
+        return TEXTS[subj]["intro"], 1.0
     if t > 15.4:
-        return "La plaza terminada", 1.0
+        return PH[-1][1], 1.0
     p = p_of_t(t)
-    k = max(i for i, (p0, _) in enumerate(PHASES) if p >= p0)
+    k = max(i for i, (p0, _) in enumerate(PH) if p >= p0)
     # fade around phase changes (in p units ~0.012 = ~0.2 s)
-    d = min([abs(p - PHASES[k][0]) if k > 0 else 1.0] +
-            ([abs(PHASES[k + 1][0] - p)] if k + 1 < len(PHASES) else [1.0]))
-    return PHASES[k][1], min(1.0, d / 0.012)
+    d = min([abs(p - PH[k][0]) if k > 0 else 1.0] +
+            ([abs(PH[k + 1][0] - p)] if k + 1 < len(PH) else [1.0]))
+    return PH[k][1], min(1.0, d / 0.012)
 
 
 def compose_vertical(meta, src):
-    paper, torn, ih, text = vertical_static()
+    subj = meta.get("subject", "plaza")
+    paper, torn, ih, text = vertical_static(subj)
     full = compose(meta, src, cart=False, frame_border=False).astype(np.float32) / 255
-    x0, y0, x1, y1 = V_CROP
+    x0, y0, x1, y1 = V_CROPS[subj]
     crop = Image.fromarray((full[y0:y1, x0:x1] * 255).astype(np.uint8)).resize((VW, ih), Image.LANCZOS)
     crop = np.asarray(crop, np.float32) / 255
     out = paper.copy()
@@ -514,15 +592,21 @@ def compose_vertical(meta, src):
     out = out * (1 - k) + text[..., :3] * k
     # phase caption + progress rule
     t = meta["t"]
-    label, a = phase_label(t)
+    label, a = phase_label(t, subj)
     im = Image.new("RGBA", (VW, 140), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    f = _fonts()[3]
+    f = _fit(d, label, _fonts()[3], VW - 60)
     w = d.textbbox((0, 0), label, font=f)[2]
     d.text(((VW - w) / 2, 10), label, font=f, fill=(62, 44, 30, int(235 * a)))
     p = p_of_t(t) if 1.0 <= t <= 17.4 else 0.0
     bar = int(560 * p)
     d.line([(VW / 2 - 280, 100), (VW / 2 + 280, 100)], fill=(62, 44, 30, 70), width=2)
+    yrs = TEXTS[subj]["years"]
+    if yrs:
+        fs = _fonts()[2]
+        d.text((VW / 2 - 280 - d.textbbox((0, 0), yrs[0], font=fs)[2] - 14, 84), yrs[0], font=fs,
+               fill=(62, 44, 30, 200))
+        d.text((VW / 2 + 294, 84), yrs[1], font=fs, fill=(62, 44, 30, 200))
     if bar > 0:
         d.line([(VW / 2 - 280, 100), (VW / 2 - 280 + bar, 100)], fill=(158, 52, 36, 230), width=4)
     lab = np.asarray(im, np.float32) / 255
