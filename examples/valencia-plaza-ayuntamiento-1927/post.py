@@ -302,7 +302,7 @@ def phase_curves(t):
     return ink_on, col_on
 
 
-def compose(meta, src):
+def compose(meta, src, cart=True, frame_border=True):
     W, H = meta["res"]
     S = statics(W, H)
     t = meta["t"]
@@ -356,7 +356,7 @@ def compose(meta, src):
     # --- watercolour paper texture over the painting, torn border
     img = img * (0.94 + 0.10 * (S["paper"] / PAPER[None, None] - 0.95))
     img = img * (1 + 0.025 * S["grain"][..., None])
-    border = S["border"]
+    border = S["border"] if frame_border else np.ones((H, W), np.float32)
     # --- colour reveal mask with pigment rim
     rv = S["reveal"]
     thr = col_on * 1.25 - 0.08
@@ -377,9 +377,10 @@ def compose(meta, src):
     rk = 0.7 * (1 - col_on) + 0.06
     out = out * (1 - (pr * rk)[..., None]) + RED_INK * (pr * rk)[..., None]
     # --- cartouche
-    ca = cartouche(W, H)
-    k = ca[..., 3:4] * 0.92
-    out = out * (1 - k) + ca[..., :3] * k
+    if cart:
+        ca = cartouche(W, H)
+        k = ca[..., 3:4] * 0.92
+        out = out * (1 - k) + ca[..., :3] * k
     # vignette
     out = np.clip(out, 0, 1)
     return (out * 255 + np.random.default_rng(fi).random(out.shape) * 0.9).astype(np.uint8)
@@ -438,13 +439,107 @@ def add_clouds(img, S, t, W, H):
     return out
 
 
+# ------------------------------------------------------- vertical 9:16 cut
+VW, VH = 1080, 1920
+V_CROP = (300, 20, 1340, 900)        # window of the 1600x900 frame (x0, y0, x1, y1)
+V_IMG_Y = 470                         # top of the illustration on the 9:16 canvas
+PHASES = [(0.00, "Excavación y solera"), (0.20, "Muros de ladrillo y pilares"),
+          (0.42, "Forjado con cabrias de madera"), (0.70, "Sillería, balaustradas y jardines"),
+          (0.90, "La plaza terminada")]
+
+
+def p_of_t(t):
+    u = min(max((t - 1.0) / 14.4, 0.0), 1.0)
+    return 0.15 * u * u * (3 - 2 * u) + 0.85 * u
+
+
+def _fonts(sc=1.0):
+    base = "/usr/share/fonts/truetype/liberation/"
+    return (ImageFont.truetype(base + "LiberationSerif-Bold.ttf", int(64 * sc)),
+            ImageFont.truetype(base + "LiberationSerif-Italic.ttf", int(36 * sc)),
+            ImageFont.truetype(base + "LiberationSerif-Regular.ttf", int(30 * sc)),
+            ImageFont.truetype(base + "LiberationSerif-Italic.ttf", int(44 * sc)))
+
+
+def vertical_static():
+    if "vstatic" in CACHE:
+        return CACHE["vstatic"]
+    S = statics(VW, VH)
+    x0, y0, x1, y1 = V_CROP
+    ih = int(round((y1 - y0) * VW / (x1 - x0)))
+    yy, xx = np.mgrid[0:ih, 0:VW].astype(np.float32)
+    edge = np.minimum.reduce([xx, VW - 1 - xx, yy, ih - 1 - yy]) / (0.5 * ih)
+    torn = smoothstep(0.015, 0.11, edge + 0.07 * (fbm(ih, VW, 31, 6, 6) - 0.5))
+    im = Image.new("RGBA", (VW, VH), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    f1, f2, f3, _ = _fonts()
+    red, ink = (158, 52, 36, 240), (62, 44, 30, 230)
+
+    def centre(y, txt, font, fill):
+        w = d.textbbox((0, 0), txt, font=font)[2]
+        d.text(((VW - w) / 2, y), txt, font=font, fill=fill)
+
+    centre(215, "PLAZA DE EMILIO CASTELAR", f1, red)
+    centre(300, "Plataforma central y mercado de flores", f2, ink)
+    centre(352, "J. Goerlich Lleó · 1927 · València", f3, ink)
+    d.line([(VW / 2 - 230, 415), (VW / 2 + 230, 415)], fill=red, width=2)
+    centre(V_IMG_Y + ih + 210, "hoy Plaza del Ayuntamiento · Plano D2", f3, ink)
+    CACHE["vstatic"] = (S["paper"], torn[..., None], ih, np.asarray(im, np.float32) / 255)
+    return CACHE["vstatic"]
+
+
+def phase_label(t):
+    if t < 1.0 or t > 17.4:
+        return "El proyecto de 1927", 1.0
+    if t > 15.4:
+        return "La plaza terminada", 1.0
+    p = p_of_t(t)
+    k = max(i for i, (p0, _) in enumerate(PHASES) if p >= p0)
+    # fade around phase changes (in p units ~0.012 = ~0.2 s)
+    d = min([abs(p - PHASES[k][0]) if k > 0 else 1.0] +
+            ([abs(PHASES[k + 1][0] - p)] if k + 1 < len(PHASES) else [1.0]))
+    return PHASES[k][1], min(1.0, d / 0.012)
+
+
+def compose_vertical(meta, src):
+    paper, torn, ih, text = vertical_static()
+    full = compose(meta, src, cart=False, frame_border=False).astype(np.float32) / 255
+    x0, y0, x1, y1 = V_CROP
+    crop = Image.fromarray((full[y0:y1, x0:x1] * 255).astype(np.uint8)).resize((VW, ih), Image.LANCZOS)
+    crop = np.asarray(crop, np.float32) / 255
+    out = paper.copy()
+    reg = out[V_IMG_Y:V_IMG_Y + ih]
+    out[V_IMG_Y:V_IMG_Y + ih] = reg * (1 - torn) + crop * torn
+    k = text[..., 3:4]
+    out = out * (1 - k) + text[..., :3] * k
+    # phase caption + progress rule
+    t = meta["t"]
+    label, a = phase_label(t)
+    im = Image.new("RGBA", (VW, 140), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    f = _fonts()[3]
+    w = d.textbbox((0, 0), label, font=f)[2]
+    d.text(((VW - w) / 2, 10), label, font=f, fill=(62, 44, 30, int(235 * a)))
+    p = p_of_t(t) if 1.0 <= t <= 17.4 else 0.0
+    bar = int(560 * p)
+    d.line([(VW / 2 - 280, 100), (VW / 2 + 280, 100)], fill=(62, 44, 30, 70), width=2)
+    if bar > 0:
+        d.line([(VW / 2 - 280, 100), (VW / 2 - 280 + bar, 100)], fill=(158, 52, 36, 230), width=4)
+    lab = np.asarray(im, np.float32) / 255
+    y = V_IMG_Y + ih + 40
+    k = lab[..., 3:4]
+    out[y:y + 140] = out[y:y + 140] * (1 - k) + lab[..., :3] * k
+    out = np.clip(out, 0, 1)
+    return (out * 255 + np.random.default_rng(meta["frame"]).random(out.shape) * 0.9).astype(np.uint8)
+
+
 def work(args):
-    meta_path, src, dst = args
+    meta_path, src, dst, vertical = args
     if os.path.exists(dst):
         return dst
     with open(meta_path) as fh:
         meta = json.load(fh)
-    out = compose(meta, src)
+    out = compose_vertical(meta, src) if vertical else compose(meta, src)
     Image.fromarray(out).save(dst, compress_level=1)
     return dst
 
@@ -456,6 +551,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=3)
     ap.add_argument("--frames", default=None)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--vertical", action="store_true", help="9:16 cut for phones")
     a = ap.parse_args()
     os.makedirs(a.dst, exist_ok=True)
     frames = range(N) if not a.frames else [int(x) for x in a.frames.split(",")]
@@ -472,7 +568,7 @@ def main():
             continue
         if a.force and os.path.exists(dst):
             os.remove(dst)
-        jobs.append((mp, os.path.join(a.src, "f%04d.exr" % fi), dst))
+        jobs.append((mp, os.path.join(a.src, "f%04d.exr" % fi), dst, a.vertical))
     with Pool(a.jobs) as pool:
         for i, d in enumerate(pool.imap_unordered(work, jobs)):
             if i % 20 == 0:
