@@ -1,4 +1,49 @@
-# Plaza de Emilio Castelar, València — 1927 · animación axonométrica en bucle
+# València · animaciones axonométricas en bucle
+
+Dos piezas generadas íntegramente por código (Blender/Cycles vía `bpy` + post-proceso pictórico
+en NumPy/SciPy), con la ciudad viva alrededor de la obra:
+
+| pieza | vídeo | vertical (móvil) |
+|---|---|---|
+| **Palacio de Comunicaciones (Correos), 1915–1922** — tema principal | `correos_1915_1922_loop.mp4` | `correos_1915_1922_loop_vertical.mp4` |
+| Plataforma central de la Plaza de Emilio Castelar, Goerlich 1927 | `valencia_plaza_1927_loop.mp4` | `valencia_plaza_1927_loop_vertical.mp4` |
+
+```bash
+python render.py --subject correos --res 1600x900 --samples 5 --frames 0:50 --out render_correos/exr  # por tramos de 50
+python post.py --src render_correos/exr --dst render_correos/frames              # 16:9
+python post.py --src render_correos/exr --dst render_correos/frames_v --vertical # 9:16
+```
+
+## Palacio de Comunicaciones (Correos y Telégrafos)
+
+Arquitecto Miguel Ángel Navarro Pérez; construido entre 1915 y 1922 e inaugurado en 1923;
+eclecticismo de raíz francesa con toques del modernismo valenciano; esbelta torre metálica
+rematada por una esfera armilar; patio de operaciones cubierto por una cúpula de vidriera de
+370 piezas (Maumejean). Fuentes: Visit València, Ayuntamiento de València, ONCE, y la
+monografía de D. Espada Torres (Universidad de Zaragoza).
+
+Secuencia constructiva (`vlc/correos.py`): replanteo con estacas y cordeles; vaciado del sótano
+a mano con salida de tierras en carros; muros de cimentación y sótano; forjado de planta baja;
+seis plantas que suben una tras otra — pilares de acero colocados con cabria, muros con cara de
+sillería levantados hilada a hilada en una onda que recorre el perímetro, paños de forjado —
+con el andamio de rollizos trepando con los muros y un montacargas de madera subiendo y
+bajando; columnas y cubierta del patio de operaciones; tambor, nervios de hierro de la cúpula
+uno a uno y después el vidrio; ático y balaustrada, pabellones de esquina con mansarda de
+pizarra, cuerpo central; torre de celosía por tramos y esfera armilar; acristalamiento del gran
+arco, grupo escultórico, ornamentación; andamios desmontados de arriba abajo y retirada de la
+valla. Cuadrillas por oficio: excavadores, albañiles sobre el andamio, peones de capacho,
+canteros labrando sillares en el taller de la calle lateral (con polvo), gruistas en los
+tornos, capataces con planos; mirones en la valla, paseantes, tranvía.
+
+La plaza aparece con su trazado ajardinado anterior a la plataforma de 1927, por coherencia
+cronológica. **Supuestos**: el sistema estructural (estructura de acero roblonado + muros de
+carga con aplacado de sillería), la distribución en alas alrededor del patio y la forma de los
+pabellones son una reconstrucción verosímil de la época, no un levantamiento; las fuentes
+consultadas no describen la estructura ni la planta.
+
+---
+
+# Plataforma de la Plaza de Emilio Castelar, 1927 (primera pieza)
 
 Animación axonométrica (cámara ortográfica) generada **íntegramente por código**: Blender/Cycles
 (`bpy` como módulo de Python) para la geometría, los materiales, la luz y la animación, y un
