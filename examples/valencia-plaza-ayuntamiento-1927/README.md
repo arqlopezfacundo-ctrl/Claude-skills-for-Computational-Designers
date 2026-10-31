@@ -5,6 +5,7 @@ en NumPy/SciPy), con la ciudad viva alrededor de la obra:
 
 | pieza | vídeo | vertical (móvil) |
 |---|---|---|
+| **Película de 40 s: Correos 1915–1922, cámara continua pájaro ↔ peatón** — versión principal | — | `correos_film_40s_vertical.mp4` |
 | **Palacio de Comunicaciones (Correos), 1915–1922** — tema principal | `correos_1915_1922_loop.mp4` | `correos_1915_1922_loop_vertical.mp4` |
 | Plataforma central de la Plaza de Emilio Castelar, Goerlich 1927 | `valencia_plaza_1927_loop.mp4` | `valencia_plaza_1927_loop_vertical.mp4` |
 
@@ -12,6 +13,27 @@ en NumPy/SciPy), con la ciudad viva alrededor de la obra:
 python render.py --subject correos --res 1600x900 --samples 5 --frames 0:50 --out render_correos/exr  # por tramos de 50
 python post.py --src render_correos/exr --dst render_correos/frames              # 16:9
 python post.py --src render_correos/exr --dst render_correos/frames_v --vertical # 9:16
+```
+
+## Película de 40 s (`film.py`, `film_map.py`, `film_post.py`)
+
+Un único plano en perspectiva, sin cortes: el plano de emplazamiento, doblado y arrugado sobre una
+mesa de dibujo (nogal, compás, tintero, plumilla, regla), se despliega y se convierte en el modelo
+3D; vista de pájaro en órbita; descenso hasta la altura de los ojos en el taller de cantería
+(bancos con sillares a medio labrar, mazas, cinceles, escuadras, artesas, cubos, criba, barricas,
+caballetes con sierra, cartel de obra, mula con carro de ruedas de radios); mirada hacia arriba
+por la esquina andamiada; travelling lateral por la fachada junto al torno de la cabria, cuyos
+engranajes giran al izar; contrapicado de la torre y la cúpula; ascenso a la cenital y el plano se
+vuelve a plegar (bucle perfecto). Foco que cambia de distancia y profundidad de campo real.
+Figuras articuladas (metaballs, rodilla/codo, faja, alpargatas, boina) y mulas con collera y
+arreos; fachada con huecos reales (jambas, alféizar, molduras, balcones de hierro, carpinterías y
+persianas, arcos de medio punto en planta baja). Abajo, una lámina técnica dibuja planta, sección
+A-A' y axonometría al ritmo de la obra, con la fase y la regla 1915–1922.
+
+```bash
+python film.py --frames 57:157 --res 900x1000 --samples 5 --out film/exr   # tramos de 100
+python film_map.py --out film/map
+python film_post.py --jobs 3   # -> film/frames, luego ffmpeg
 ```
 
 ## Palacio de Comunicaciones (Correos y Telégrafos)
