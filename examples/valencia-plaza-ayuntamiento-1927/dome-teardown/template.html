@@ -69,6 +69,13 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--acc)
 #tlTicks button{border:0;background:none;padding:2px 0;display:flex;flex-direction:column;align-items:center;color:var(--mute)}
 #tlTicks b{font:500 10px var(--mono)}#tlTicks span{display:none}#tlTicks .done{color:var(--acc)}
 #tlLabel{font:italic 13px var(--serif);color:var(--mute);margin-bottom:-2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#intro{position:fixed;inset:0;z-index:50;background:#14110d;display:flex;align-items:center;justify-content:center}
+#intro video{width:100%;height:100%;object-fit:contain;background:#14110d}
+#introGo{position:absolute;inset:0;display:grid;place-items:center;background:rgba(20,17,13,.55);color:#f1e9d6;border:0;font:italic 24px/1.2 'EB Garamond',Georgia,serif;text-align:center;padding:30px}
+#introGo b{display:block;font:500 12px 'IBM Plex Mono',monospace;letter-spacing:1.4px;text-transform:uppercase;margin-top:14px;border:1px solid #f1e9d6;padding:10px 16px;display:inline-block}
+#skip{position:absolute;right:14px;top:calc(12px + env(safe-area-inset-top));font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:#f1e9d6;background:rgba(20,17,13,.55);border:1px solid rgba(241,233,214,.7);padding:8px 11px;z-index:2}
+#introBar{position:absolute;left:0;bottom:0;height:3px;background:#c2502a;width:0;z-index:2}
+#intro.off{display:none}
 body:not(.ready)::after{content:"Cargando modelo…";position:fixed;inset:0;display:grid;place-items:center;font:italic 22px var(--serif);background:var(--paper);z-index:20}
 @media (min-width:820px){
  header h1{font-size:23px}.panel{width:300px;transform:none!important;top:12px;bottom:12px;border:1px solid var(--ink);box-shadow:none!important;background:rgba(236,230,214,.9)}
@@ -84,7 +91,7 @@ body:not(.ready)::after{content:"Cargando modelo…";position:fixed;inset:0;disp
 <header>
  <h1>Cúpula de vidriera<small>Palacio de Comunicaciones · València · despiece 3D</small></h1>
  <span class="sp"></span>
- <button class="hb" id="openL">Ficha</button><button class="hb" id="openR">Piezas</button>
+ <button class="hb" id="replay">▶ Obra</button><button class="hb" id="openL">Ficha</button><button class="hb" id="openR">Piezas</button>
 </header>
 <main>
  <canvas id="c" aria-label="Modelo 3D de la cúpula"></canvas>
@@ -125,6 +132,26 @@ body:not(.ready)::after{content:"Cargando modelo…";position:fixed;inset:0;disp
 function place(){if(innerWidth<820){m.appendChild(t);m.style.display='flex'}else{r.appendChild(t);m.style.display='none'}}
 addEventListener('resize',place);place();})();
 </script>
+<div id="intro"><video id="vid" playsinline muted preload="auto"></video><div id="introBar"></div>
+<button id="skip">Saltar ▸ cúpula</button><button id="introGo"><span>Palacio de Comunicaciones<br>Cómo se construyó, 1915–1922<b>Tocar para empezar</b></span></button></div>
+<script>window.__pause=true;</script>
 <script>/*BUNDLE*/</script>
+<script>
+(function(){
+var b64="/*VIDEO*/";
+var v=document.getElementById('vid'),intro=document.getElementById('intro'),go=document.getElementById('introGo'),bar=document.getElementById('introBar');
+var url=null,done=false;
+function toBlob(){var bin=atob(b64),n=bin.length,u=new Uint8Array(n);for(var i=0;i<n;i++)u[i]=bin.charCodeAt(i);b64=null;return URL.createObjectURL(new Blob([u],{type:'video/mp4'}));}
+function cut(){if(done)return;done=true;try{v.pause()}catch(e){}intro.classList.add('off');window.__pause=false;dispatchEvent(new Event('dome-wake'));}
+function show(){done=false;window.__pause=true;intro.classList.remove('off');go.style.display='none';v.currentTime=0;var p=v.play();if(p&&p.catch)p.catch(function(){go.style.display='grid'});}
+function init(){try{url=toBlob();v.src=url;}catch(e){cut();return;}
+ v.addEventListener('ended',cut);v.addEventListener('error',cut);
+ v.addEventListener('timeupdate',function(){if(v.duration)bar.style.width=(100*v.currentTime/v.duration)+'%'});}
+go.addEventListener('click',function(){go.style.display='none';var p=v.play();if(p&&p.catch)p.catch(cut);});
+document.getElementById('skip').addEventListener('click',cut);
+document.getElementById('replay').addEventListener('click',function(){if(!url)return;show();});
+setTimeout(function(){init();var p=v.play();if(p&&p.then)p.then(function(){go.style.display='none'}).catch(function(){go.style.display='grid'});},50);
+})();
+</script>
 </body>
 </html>

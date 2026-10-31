@@ -478,7 +478,7 @@ function frame(now) {
     dirty = true;
   }
   if (controls.update() || controls.autoRotate) dirty = true;
-  if (dirty) {
+  if (dirty && !window.__pause) {
     dirty = false;
     updateLabels();
     renderer.render(scene, camera);
@@ -488,5 +488,9 @@ resize(); applyQuality(); setU(0); syncTimeline();
 { const d = fitDist(0); camera.position.set(0.62 * d, 0.46 * d + 5, 0.72 * d); controls.target.set(0, 5.2, 0); }
 document.body.classList.add('ready');
 requestAnimationFrame(frame);
+addEventListener('dome-wake', () => {
+  dirty = true; resize();
+  setTimeout(() => { if (U < 0.5 && S >= 9) { animateU(1, 3600); frame_(1); } }, 1100);
+});
 // test hooks
 window.__dome = { fitDist, setU, select, parts, setCut, camera, controls, scene, renderer, get S() { return S; }, setS(v) { S = v; syncTimeline(); updateParts(); }, byType };
