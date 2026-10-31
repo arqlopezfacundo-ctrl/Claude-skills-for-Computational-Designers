@@ -6,10 +6,10 @@ from mathutils import Vector
 
 from . import plan
 
-CAM_TARGET = (14.0, -2.0, 0.0)
+CAM_TARGET = (12.0, -6.0, 0.0)
 CAM_ELEV = 42.0          # degrees above horizon
-CAM_AZ = -28.0           # degrees: view direction rotated from +y
-ORTHO = 182.0
+CAM_AZ = 150.0         # degrees: looking across the plaza towards the Casas Consistoriales
+ORTHO = 215.0
 SUN_ELEV = 27.0
 SUN_AZ = 128.0           # light coming from the left-front of the view
 
@@ -46,7 +46,7 @@ def setup(res=(1920, 1080), samples=48):
     vl.use_pass_z = True
     vl.use_pass_normal = True
     vl.use_pass_mist = True
-    vl.use_pass_diffuse_color = True
+    vl.use_pass_diffuse_color = False
     vl.use_pass_shadow = False
     try:
         sc.cycles.use_light_tree = True

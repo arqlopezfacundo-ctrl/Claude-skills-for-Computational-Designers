@@ -371,8 +371,8 @@ def m_cloudshadow():
     g = G(m)
     tc = g.texco().outputs["Object"]
     n = g.noise(tc, scale=0.012, detail=5, rough=0.55, dist=0.4).outputs["Fac"]
-    a = sstep(g, 0.5, 0.66, n)
-    a = mul(g, a, 0.62)
+    a = sstep(g, 0.47, 0.60, n)
+    a = mul(g, a, 0.55)
     tr = g.node("ShaderNodeBsdfTransparent")
     df = g.node("ShaderNodeBsdfDiffuse")
     mx = g.node("ShaderNodeMixShader")

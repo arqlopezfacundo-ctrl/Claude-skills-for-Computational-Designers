@@ -514,10 +514,34 @@ class Landmarks:
         ln = np.linalg.norm(B - A)
         mb.box((*(mid + out * 0.3), H - 0.6), (ln + 1, 1.2, 0.6), trim, 2, rot=ang)
         mb.box((*(mid + out * 0.05), H), (ln, 0.5, 1.4), trim, 1, rot=ang)
+        # rusticated base and giant-order pilasters along the frontage
+        mb.box((*(mid + out * 0.25), 0), (ln, 0.5, 4.6), L(214, 190, 150), 1, rot=ang)
+        mb.box((*(mid + out * 0.3), 4.5), (ln + 0.4, 0.7, 0.35), trim, 2, rot=ang)
+        n_p = int(ln / 7.2)
+        for k in range(n_p + 1):
+            q = A + (B - A) * k / n_p + out * 0.2
+            mb.box((*q, 4.85), (0.9, 0.45, H - 5.6), trim, 1, rot=ang)
+        for z in (8.0, 14.6):   # balcony lines
+            mb.box((*(mid + out * 0.45), z), (ln - 2, 0.9, 0.22), trim, 2, rot=ang)
         # central projecting body and great tower
         c = mid + out * 2.5
         mb.box((*c, 0), (26, 7, H + 3), (*stone, 0.61), 0, rot=ang)
         mb.box((*(c + out * 3.8), 8.0), (20, 2.4, 0.35), trim, 2, rot=ang)   # balcony
+        for k in range(6):   # paired columns of the main balcony bay
+            q = c + out * 3.7 + t * (k - 2.5) * 4.0
+            mb.cyl((*q, 8.35), 0.35, 9.0, 8, trim, 1)
+        # pediment over the central body
+        pc = c + out * 3.4
+        g0 = pc - t * 12
+        g1 = pc + t * 12
+        i = mb.add_verts([(*g0, H + 3), (*g1, H + 3), (*pc, H + 8.5)])
+        mb.face((i, i + 1, i + 2), trim, 1, [(0, H + 3), (24, H + 3), (12, H + 8.5)])
+        i = mb.add_verts([(*(g0 - out * 6.8), H + 3), (*g0, H + 3), (*pc, H + 8.5),
+                          (*(pc - out * 6.8), H + 8.5)])
+        mb.face((i, i + 1, i + 2, i + 3), L(150, 120, 90), 5)
+        i = mb.add_verts([(*g1, H + 3), (*(g1 - out * 6.8), H + 3), (*(pc - out * 6.8), H + 8.5),
+                          (*pc, H + 8.5)])
+        mb.face((i, i + 1, i + 2, i + 3), L(150, 120, 90), 5)
         tw = c - out * 2
         mb.box((*tw, 0), (14, 11, 42), (*stone, 0.83), 0, rot=ang)
         mb.box((*tw, 41.5), (15, 12, 1.0), trim, 2, rot=ang)
