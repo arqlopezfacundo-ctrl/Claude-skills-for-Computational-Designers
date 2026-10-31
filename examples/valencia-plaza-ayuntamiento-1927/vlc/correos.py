@@ -83,9 +83,9 @@ class Correos(Site):
         self.ring = F.difference(self.hall)
         self.LEN = F.exterior.length
         self.yard = box(100.2, 72.0, 108.5, 124.0)
-        self.work_zone = F.buffer(8.0, join_style=2)
+        self.work_zone = F.buffer(9.5, join_style=2)
         self.cranes_def = [(self.dome_c + np.array([0.0, 0.0]), 27.0, 0.0),
-                           (self.front_mid + self.out * 6.5 - self.t * 14.0, 25.0, 0.0)]
+                           (self.front_mid + self.out * 7.4 + self.t * 10.0, 25.0, 0.0)]
         self.hoist_p = None
 
     # ------------------------------------------------------------- helpers
@@ -160,7 +160,7 @@ class Correos(Site):
             z0, z1 = band_z(k)
             tk = t_band(k)
             ins = 0.03 * k
-            for ring, is_out in ((self.F.exterior, True), (self.hall.exterior, False)):
+            for ring, is_out in ((self.hall.exterior, False),):
                 n = int(ring.length / 4.0)
                 for j in range(n):
                     a = ring.interpolate(ring.length * j / n)
@@ -223,6 +223,154 @@ class Correos(Site):
             t0 = 0.17 + 0.04 * self.s_of(cx, cy) + self.rng.uniform(0, 0.008)
             self.add(mb, "gslab", [self.M["plain_fade"]], t0, t0 + 0.012, mode="drop", drop=2.0,
                      origin=(cx, cy, 0))
+
+    # ------------------------------------------------------------ facade
+    def bays(self):
+        """Perimeter split into window bays: (edge index, pa, pb, d, o, U0)."""
+        c = list(self.F.exterior.coords)[:-1]
+        out = []
+        U = 0.0
+        for i in range(len(c)):
+            a, b = np.array(c[i]), np.array(c[(i + 1) % len(c)])
+            ln = np.linalg.norm(b - a)
+            d = (b - a) / ln
+            o = np.array([d[1], -d[0]])
+            if self.F.contains(Point(*((a + b) / 2 + o * 0.8))):
+                o = -o
+            n = max(1, int(round(ln / 3.9)))
+            for j in range(n):
+                pa = a + d * ln * j / n
+                pb = a + d * ln * (j + 1) / n
+                out.append((i, pa, pb, d, o, U + ln * j / n))
+            U += ln
+        return out
+
+    @staticmethod
+    def wbox(mb, fr, u0, u1, n0, n1, za, zb, col, mat):
+        """Box in a bay frame fr=(pa, d, o, U0): u along the wall, n outward."""
+        pa, d, o, U0 = fr
+        P = lambda u, n, z: (pa[0] + d[0] * u + o[0] * n, pa[1] + d[1] * u + o[1] * n, z)
+        b = mb.add_verts([P(u0, n0, za), P(u1, n0, za), P(u1, n1, za), P(u0, n1, za),
+                          P(u0, n0, zb), P(u1, n0, zb), P(u1, n1, zb), P(u0, n1, zb)])
+        Ua, Ub = U0 + u0, U0 + u1
+        f = [((0, 1, 5, 4), [(Ua, za), (Ub, za), (Ub, zb), (Ua, zb)]),      # inner side
+             ((2, 3, 7, 6), [(Ub, za), (Ua, za), (Ua, zb), (Ub, zb)]),      # outer face
+             ((1, 2, 6, 5), [(n0, za), (n1, za), (n1, zb), (n0, zb)]),
+             ((3, 0, 4, 7), [(n1, za), (n0, za), (n0, zb), (n1, zb)]),
+             ((4, 5, 6, 7), [(Ua, n0), (Ub, n0), (Ub, n1), (Ua, n1)]),
+             ((3, 2, 1, 0), [(Ua, n1), (Ub, n1), (Ub, n0), (Ua, n0)])]
+        for idx, uv in f:
+            mb.face(tuple(b + k for k in idx), col, mat, uv)
+
+    def facade(self):
+        rng = self.rng
+        T = 0.75            # wall thickness behind the outer face
+        bays = self.bays()
+        self.bay_list = bays
+        stone = STONE
+        trim = TRIM
+        joinery = [L(62, 82, 64), L(88, 70, 50), L(70, 84, 92)]
+        windows = {}
+        for (ei, pa, pb, d, o, U0) in bays:
+            bl = np.linalg.norm(pb - pa)
+            fr = (pa, d, o, U0)
+            mid = (pa + pb) / 2
+            sN = self.s_of(*mid)
+            # is this bay hidden behind the frontispiece?
+            front_c = np.linalg.norm(mid - self.front_mid) < 9.0 and abs(np.dot(o, self.out)) > 0.9
+            for k in range(NB):
+                z0, z1 = band_z(k)
+                ground = k == 0
+                ww = 2.0 if ground else 1.45
+                sill = z0 + (0.5 if ground else 0.95)
+                head = z1 - (1.25 if ground else 0.7)
+                cu = bl / 2
+                u_l, u_r = cu - ww / 2, cu + ww / 2
+                slices = [(z0, sill), (sill, head), (head, z1)]
+                for si, (za, zb) in enumerate(slices):
+                    mb = MB()
+                    if si == 1 and not front_c:
+                        self.wbox(mb, fr, 0, u_l, -T, 0, za, zb, stone, 0)
+                        self.wbox(mb, fr, u_r, bl, -T, 0, za, zb, stone, 0)
+                        # moulded surround
+                        if not ground:
+                            self.wbox(mb, fr, u_l - 0.16, u_l, 0, 0.06, za, zb, trim, 0)
+                            self.wbox(mb, fr, u_r, u_r + 0.16, 0, 0.06, za, zb, trim, 0)
+                    else:
+                        self.wbox(mb, fr, 0, bl, -T, 0, za, zb, stone, 0)
+                    if si == 0 and not front_c:
+                        # sill ledge
+                        self.wbox(mb, fr, u_l - 0.15, u_r + 0.15, 0, 0.13, zb - 0.09, zb, trim, 0)
+                        if k in (1, 3):   # balcony with iron railing
+                            self.wbox(mb, fr, u_l - 0.35, u_r + 0.35, 0, 0.7, zb - 0.16, zb, trim, 0)
+                            for j in range(int((ww + 0.6) / 0.13) + 1):
+                                uu = u_l - 0.3 + j * 0.13
+                                P0 = pa + d * uu + o * 0.64
+                                mb.beam((P0[0], P0[1], zb), (P0[0], P0[1], zb + 1.0), 0.022, IRON, 1)
+                            for nn, uu0, uu1 in ((0.64, u_l - 0.3, u_r + 0.3),):
+                                A = pa + d * uu0 + o * nn
+                                B = pa + d * uu1 + o * nn
+                                mb.beam((A[0], A[1], zb + 1.0), (B[0], B[1], zb + 1.0), 0.05, IRON, 1)
+                                mb.beam((A[0], A[1], zb + 0.08), (B[0], B[1], zb + 0.08), 0.03, IRON, 1)
+                            for uu in (u_l - 0.3, u_r + 0.3):
+                                A = pa + d * uu
+                                B = A + o * 0.64
+                                mb.beam((A[0], A[1], zb + 1.0), (B[0], B[1], zb + 1.0), 0.05, IRON, 1)
+                    if si == 2:
+                        # string course at the floor line, cornice over the window
+                        self.wbox(mb, fr, 0, bl, 0, 0.12, zb - 0.22, zb, trim, 0)
+                        if not front_c:
+                            if ground:
+                                # semicircular arch: voussoirs and keystone
+                                r = ww / 2
+                                for j in range(9):
+                                    a0 = math.pi * j / 9
+                                    a1 = math.pi * (j + 1) / 9
+                                    am = (a0 + a1) / 2
+                                    uc = cu + (r + 0.18) * math.cos(am)
+                                    zc = head + (r + 0.18) * math.sin(am) - 0.05
+                                    self.wbox(mb, fr, uc - 0.17, uc + 0.17, 0, 0.08 + (0.06 if j == 4 else 0),
+                                              zc - 0.17, zc + 0.17, trim, 0)
+                            else:
+                                self.wbox(mb, fr, u_l - 0.25, u_r + 0.25, 0, 0.16, za + 0.02, za + 0.2, trim, 0)
+                                if k == 1:   # pediment-like hood on the piano nobile
+                                    self.wbox(mb, fr, u_l - 0.1, u_r + 0.1, 0, 0.1, za + 0.2, za + 0.45, trim, 0)
+                    t0 = t_band(k) + 0.045 * sN + 0.012 * si + rng.uniform(-0.002, 0.003)
+                    self.add(mb, "bay%d" % k, [self.M["ashlar"], self.M["metal"]], t0, t0 + 0.008,
+                             mode="rise", drop=0.35)
+                # windows: frames, mullion, glass, roller shutters (installed later)
+                if front_c:
+                    continue
+                key = (k, ei)
+                wmb = windows.setdefault(key, MB())
+                jc = joinery[(ei + k) % 3]
+                g0, g1 = sill, head
+                n_g = -0.42
+                self.wbox(wmb, fr, u_l, u_r, n_g - 0.02, n_g, g0, g1, L(30, 36, 42), 2)
+                for (a0, a1, b0, b1) in ((u_l, u_l + 0.08, g0, g1), (u_r - 0.08, u_r, g0, g1),
+                                         (u_l, u_r, g0, g0 + 0.08), (u_l, u_r, g1 - 0.08, g1),
+                                         (cu - 0.035, cu + 0.035, g0, g1),
+                                         (u_l, u_r, g1 - (g1 - g0) * 0.3, g1 - (g1 - g0) * 0.3 + 0.06)):
+                    self.wbox(wmb, fr, a0, a1, n_g, n_g + 0.07, b0, b1, jc, 3)
+                if not ground:
+                    lower = rng.uniform(0.0, 0.75) * (g1 - g0)
+                    if lower > 0.15:
+                        self.wbox(wmb, fr, u_l + 0.02, u_r - 0.02, n_g + 0.07, n_g + 0.11, g1 - lower, g1,
+                                  jitter_col(L(96, 116, 74), rng, 0.15), 3)
+                else:
+                    r = ww / 2
+                    pts = [(cu + r * math.cos(math.pi * j / 10), head + r * math.sin(math.pi * j / 10)) for j in range(11)]
+                    for (ua, za_), (ub, zb_) in zip(pts[:-1], pts[1:]):
+                        A = pa + d * ua + o * (n_g - 0.01)
+                        B = pa + d * ub + o * (n_g - 0.01)
+                        C = pa + d * cu + o * (n_g - 0.01)
+                        i = wmb.add_verts([(A[0], A[1], za_), (B[0], B[1], zb_), (C[0], C[1], head)])
+                        wmb.face((i, i + 1, i + 2), L(30, 36, 42), 2)
+                        wmb.beam((A[0], A[1], za_), (B[0], B[1], zb_), 0.06, jc, 3)
+        for (k, ei), wmb in windows.items():
+            t0 = 0.66 + 0.012 * k + 0.004 * ei
+            self.add(wmb, "windows%d" % k, [self.M["ashlar"], self.M["metal"], self.M["glass"], self.M["paint"]],
+                     t0, t0 + 0.015, mode="fade")
 
     def grid_cells(self, region, s):
         minx, miny, maxx, maxy = region.bounds
@@ -365,8 +513,8 @@ class Correos(Site):
         # central body: projecting frontispiece with the great arch
         c = self.front_mid + out * 1.2
         mb = MB()
-        mb.box((c[0], c[1], 0), (19.0, 2.4, zt + 6.0), (*STONE, 0.33), 0, rot=ang)
-        self.add(mb, "frontis", [self.M["facade"]], 0.36, 0.60, mode="courses", drop=zt + 6.0,
+        mb.box((c[0], c[1], 0), (19.0, 2.4, zt + 6.0), STONE, 0, rot=ang)
+        self.add(mb, "frontis", [self.M["ashlar"]], 0.36, 0.60, mode="courses", drop=zt + 6.0,
                  origin=(c[0], c[1], 0))
         mb = MB()
         f = c + out * 1.25
@@ -443,29 +591,13 @@ class Correos(Site):
         rng = self.rng
         zt = band_z(NB - 1)[1]
         ext = self.F.exterior
-        c = list(self.F.exterior.coords)[:-1]
-        for i in range(len(c)):
-            a, b = np.array(c[i]), np.array(c[(i + 1) % len(c)])
-            d = b - a
-            ln = np.linalg.norm(d)
-            d /= ln
-            o = np.array([d[1], -d[0]])
-            mid = (a + b) / 2
-            if self.F.contains(Point(*(mid + o * 0.8))):
-                o = -o
-            ang = math.atan2(d[1], d[0])
+        # giant pilasters between the bays of the plaza front (stone, fade in with the finish)
+        for (ei, pa, pb, d, o, U0) in self.bay_list:
+            if abs(np.dot(o, self.out)) < 0.9:
+                continue
             mb = MB()
-            mb.box((*(mid + o * 0.22), 0), (ln, 0.45, G0 - 0.3), (*STONE, 0.9), 1, rot=ang)
-            mb.box((*(mid + o * 0.3), G0 - 0.3), (ln + 0.3, 0.6, 0.35), TRIM, 1, rot=ang)
-            for z in (G0 + HF * 1 - 0.1, G0 + HF * 3 - 0.1):
-                mb.box((*(mid + o * 0.3), z), (ln, 0.5, 0.22), TRIM, 1, rot=ang)
-            n_p = max(2, int(ln / 7.2))
-            for k in range(n_p + 1):
-                q = a + d * ln * k / n_p + o * 0.2
-                mb.box((*q, G0 + 0.05), (0.9, 0.42, zt - G0 - 0.1), TRIM, 1, rot=ang)
-            s = self.s_of(*mid)
-            t0 = 0.70 + 0.05 * s
-            self.add(mb, "ornament", [self.M["facade"], self.M["ashlar"]], t0, t0 + 0.02, mode="fade")
+            self.wbox(mb, (pa, d, o, U0), -0.35, 0.35, 0, 0.22, G0, zt - 0.6, TRIM, 0)
+            self.add(mb, "pilaster", [self.M["ashlar"]], 0.70, 0.72, mode="fade")
         mb = MB()
         inner = self.ring.buffer(-0.6, join_style=2)
         for g in polys_of(inner):
@@ -513,17 +645,19 @@ class Correos(Site):
 
     def hoarding_and_yard(self):
         rng = self.rng
+        # open site fence of posts and two rails (the works stay visible)
         ring = self.work_zone.exterior
-        n = int(ring.length / 2.4)
-        for k in range(0, n, 5):
+        n = int(ring.length / 2.6)
+        for k in range(0, n, 6):
             mb = MB()
-            for j in range(k, min(n, k + 5)):
+            for j in range(k, min(n, k + 6)):
                 a = ring.interpolate(ring.length * j / n)
                 b = ring.interpolate(ring.length * (j + 1) / n)
-                h = 2.2 + rng.uniform(-0.08, 0.08)
-                col = jitter_col(L(150, 118, 82), rng, 0.15)
-                mb.quad_wall((a.x, a.y), (b.x, b.y), 0.0, h, (*col, rng.random()), 0)
-                mb.beam((a.x, a.y, 0), (a.x, a.y, h + 0.2), 0.14, L(110, 90, 66), 0)
+                h = 1.15 + rng.uniform(-0.05, 0.05)
+                mb.beam((a.x, a.y, 0), (a.x + rng.uniform(-0.03, 0.03), a.y, h), 0.11, L(120, 96, 70), 0)
+                for z in (0.5, h - 0.08):
+                    mb.beam((a.x, a.y, z), (b.x, b.y, z + rng.uniform(-0.03, 0.03)), 0.07,
+                            jitter_col(L(150, 118, 82), rng, 0.12), 0)
             t = 0.86 + 0.04 * rng.random()
             self.add(mb, "fence", [self.M["wood"]], -1, -1, out=(t, t + 0.015))
         # stone yard on the cross street: ashlar blocks, timber, sand, hut
@@ -551,11 +685,7 @@ class Correos(Site):
         self.add(mb, "yard", [self.M["ashlar"], self.M["wood"], self.M["earth"], self.M["metal"],
                               self.M["rooftile"]], -1, -1, out=(0.88, 0.91))
         # banker stones for the stone cutters
-        self.bankers = [(x0 + 2.0 + 2.6 * (k % 3), y0 + 16 + 2.6 * (k // 3)) for k in range(6)]
-        mb = MB()
-        for bx, by in self.bankers:
-            mb.box((bx, by, 0), (1.2, 0.8, 0.8), L(226, 214, 190), 0)
-        self.add(mb, "bankers", [self.M["ashlar"]], -1, -1, out=(0.80, 0.83))
+        self.bankers = [(x0 + 2.2 + 2.3 * (k % 3), y0 + 5.5 + 2.8 * (k // 3)) for k in range(6)]
 
     def hoist(self):
         """Timber material hoist on the side street, cage running up and down."""
@@ -825,6 +955,7 @@ class Correos(Site):
         self.spoil()
         self.foundations()
         self.storeys()
+        self.facade()
         self.hall_and_dome()
         self.crowning()
         self.ornament()

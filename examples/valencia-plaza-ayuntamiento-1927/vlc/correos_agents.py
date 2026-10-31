@@ -75,7 +75,7 @@ def build_crews(crowd, S):
     for k in range(6):
         crowd.wanderer(rng.choice(W), lambda p: drum, 0.58, 0.78, work_modes=("work",), z_fn=lambda pos, p: hz)
     # --- hod carriers between the yard and the hoist, inside the hoarding
-    loop = PathLoop(list(F.buffer(4.4, join_style=2).exterior.coords))
+    loop = PathLoop(list(F.buffer(3.8, join_style=2).exterior.coords))
     for k in range(12):
         crowd.follower(rng.choice(W), loop, rng.uniform(0, loop.length),
                        rng.choice((-1, 1)) * rng.uniform(0.9, 1.2), rng.choice(("hod", "plank", "walk")),
@@ -118,6 +118,10 @@ def build_crews(crowd, S):
                        work_time=(4, 8), speed=0.9)
 
 
+# eye-level camera stations: nobody stands on the lens
+KEEP_OUT = [(106.8, 64.5), (106.0, 64.0), (93.5, 56.6), (78.0, 54.0), (61.9, 51.3), (64.8, 52.4)]
+
+
 def build_townsfolk(crowd, S, city):
     rng = crowd.rng
     C = crowd.citizen_ids
@@ -134,17 +138,13 @@ def build_townsfolk(crowd, S, city):
             mode = "basket" if (st, "basket", 0) in crowd.meshes and rng.random() < 0.5 else "walk"
             crowd.follower(st, lp, rng.uniform(0, lp.length), rng.choice((-1, 1)) * rng.uniform(1.0, 1.45),
                            mode, lat=rng.uniform(-0.9, 0.9), z=0.16, stop_prob=0.04)
-    # walkers on the plaza walk in front of the works (outside the hoarding)
-    lp = PathLoop(list(S.work_zone.buffer(2.2, join_style=2).exterior.coords))
-    for k in range(16):
-        st = rng.choice(C)
-        crowd.follower(st, lp, rng.uniform(0, lp.length), rng.choice((-1, 1)) * rng.uniform(1.0, 1.4),
-                       "walk", lat=rng.uniform(-0.7, 0.7), z=0.16, stop_prob=0.05)
     # onlookers at the hoarding on the plaza side
-    ring = S.work_zone.buffer(1.0, join_style=2).exterior
+    ring = S.work_zone.buffer(0.7, join_style=2).exterior
     for k in range(16):
         q = ring.interpolate(rng.uniform(0, ring.length))
         if q.y > S.front_mid[1] + 8:
+            continue
+        if any(math.hypot(q.x - cx, q.y - cy) < 6.0 for cx, cy in KEEP_OUT):
             continue
         o = S.F.exterior.interpolate(S.F.exterior.project(q))
         st = rng.choice(C)
@@ -169,5 +169,5 @@ def build_townsfolk(crowd, S, city):
     zone = S.work_zone.difference(S.F.buffer(0.5)).intersection(Point(*S.front_mid).buffer(30))
     zone = zone if zone.geom_type == "Polygon" else max(zone.geoms, key=lambda g: g.area)
     for k in range(30):
-        crowd.wanderer(rng.choice(C), lambda p: zone, 0.90 + 0.06 * rng.random(), 9, work_modes=("stand",),
+        crowd.wanderer(rng.choice(C), lambda p: zone, 0.94 + 0.04 * rng.random(), 9, work_modes=("stand",),
                        work_time=(1, 5), speed=rng.uniform(0.9, 1.3), z_fn=lambda pos, p: 0.16)

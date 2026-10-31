@@ -375,7 +375,7 @@ class Crowd:
         xs = np.linspace(-330, 100, 60)
         band_s = PathLoop([(x, plan.y_s(x) + 5.0) for x in xs] + [(103.0, -60.0), (103.0, -330.0)],
                           closed=False)
-        band_n = PathLoop([(103.0, 330.0), (103.0, 62.0)] +
+        band_n = PathLoop([(111.4, 330.0), (111.4, 62.0)] +
                           [(x, plan.y_n(x) - 5.0) for x in xs[::-1]], closed=False)
         sotelo = PathLoop([(330.0, -4.0), (110.0, -4.0), (110.0, 4.0), (330.0, 4.0)], closed=False)
         cols = [L(24, 24, 26), L(30, 46, 38), L(70, 30, 30), L(40, 40, 60), L(200, 190, 160),
