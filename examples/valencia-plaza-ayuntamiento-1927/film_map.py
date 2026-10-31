@@ -377,6 +377,8 @@ def main():
     frames = range(N) if not a.frames else [int(x) for x in a.frames.split(",")]
     for i in frames:
         t = i / FPS
+        if os.path.exists(os.path.join(a.out, "m%04d.png" % i)):   # skip existing
+            continue
         v = sheet_verts(t)
         me.vertices.foreach_set("co", v.astype(np.float32).ravel())
         me.update()
