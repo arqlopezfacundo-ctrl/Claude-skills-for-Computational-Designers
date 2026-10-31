@@ -13,6 +13,7 @@ import json
 import math
 import os
 import sys
+import time
 from multiprocessing import Pool
 
 import numpy as np
@@ -464,6 +465,11 @@ def main():
         if not os.path.exists(mp):
             continue
         dst = os.path.join(a.dst, "f%04d.png" % fi)
+        exr = os.path.join(a.src, "f%04d.exr" % fi)
+        with open(mp) as fh:
+            rendered = json.load(fh).get("rendered")
+        if rendered and (not os.path.exists(exr) or time.time() - os.path.getmtime(exr) < 10):
+            continue
         if a.force and os.path.exists(dst):
             os.remove(dst)
         jobs.append((mp, os.path.join(a.src, "f%04d.exr" % fi), dst))
