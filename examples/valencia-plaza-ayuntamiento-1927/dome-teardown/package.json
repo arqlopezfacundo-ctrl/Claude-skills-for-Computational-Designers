@@ -1,0 +1,7 @@
+{
+  "name": "dome-teardown",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node build.mjs" },
+  "dependencies": { "three": "0.170.0", "esbuild": "^0.24.0" }
+}
